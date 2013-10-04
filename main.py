@@ -9,16 +9,14 @@ HOST_SERVER_ID = 6
 HOST = 'node%(id)s.net2ftp.ru' % { 'id' : HOST_SERVER_ID }
 PORT = 21
 
-BUFF_SIZE = 1024
+BUFF_SIZE = 2048
 
-def recv_timeout(s,timeout=2):
+def recv_timeout(s,timeout=1):
     s.setblocking(0)
     total_data=[];data='';begin=time.time()
-    while 1:
-        #if you got some data, then break after wait sec
+    while True:
         if total_data and time.time()-begin>timeout:
             break
-        #if you got no data at all, wait a little longer
         elif time.time()-begin>timeout*2:
             break
         try:
@@ -27,7 +25,7 @@ def recv_timeout(s,timeout=2):
                 total_data.append(data)
                 begin=time.time()
             else:
-                time.sleep(0.05)
+                time.sleep(0.1)
         except:
             pass
     return ''.join(total_data)
@@ -88,7 +86,13 @@ def upload(s, filename):
     file_stream = open_child_socket(s)
     request(s, 'STOR ' + filename)
     buffer = "hello"
-    file_stream.send(buffer+"")
+    f = open(filename, 'rb')
+    while True:
+        buffer = f.read(BUFF_SIZE)
+        if buffer == "":
+            break
+        file_stream.send(buffer)
+    f.close()
     file_stream.close()
     print recv_timeout(s)
 
@@ -133,9 +137,10 @@ if __name__ == '__main__':
     pwd(client_socket)
     ls(client_socket)
     cd(client_socket, './asd')
-    upload(client_socket, "testfile3.txt")
-    print download(client_socket, "testfile3.txt")
-    rm(client_socket, "testfile3.txt")
+    upload(client_socket, "test.obj")
+    print download(client_socket, "testfile2.txt")
+    ls(client_socket)
+    rm(client_socket, "test.obj")
     ls(client_socket)
     mkd(client_socket, "test")
     ls(client_socket)
