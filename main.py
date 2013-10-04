@@ -97,6 +97,14 @@ def download(s, filename):
 # download | filename
 ############################
 
+#############################
+# to do list
+#############################
+# - response code validation
+# - file up/down-loading
+# - threading
+#############################
+
 if __name__ == '__main__':
     client_socket = open_socket(HOST, PORT)
 
