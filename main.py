@@ -72,6 +72,17 @@ def logout(s):
     request(s, 'QUIT')
     s.close()
 
+def cd(s, path):
+    request(s, 'CWD ' + path)
+
+def pwd(s):
+    request(s, 'PWD')
+
+def upload(s, filename):
+    pass
+
+def download(s, filename):
+    pass
 
 ###########################
 # commands to implement ###
@@ -92,6 +103,7 @@ if __name__ == '__main__':
     print recv_timeout(client_socket)
     
     login(client_socket, LOGIN, PASSW)
-    request(client_socket, 'PWD')
+    pwd(client_socket)
     ls(client_socket)
+    cd(client_socket, './asd')
     logout(client_socket)
