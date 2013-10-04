@@ -48,7 +48,7 @@ def open_socket(host, port):
 
 def open_child_socket(s):
     response = request(s, "PASV")
-
+    
     iptext = response.split(' ')[4].replace('(', '').replace(')','').split(',')
     host = '%(1)s.%(2)s.%(3)s.%(4)s' % { '1' : iptext[0], '2' : iptext[1], '3' : iptext[2], '4' : iptext[3] }
     port = int(iptext[4]) * 256 + int(iptext[5])
@@ -77,12 +77,31 @@ def cd(s, path):
 
 def pwd(s):
     request(s, 'PWD')
-
+    
+def mkd(s, dir):
+    request(s, 'MKD ' + dir)
+    
+def rmd(s, dir):
+    request(s, 'RMD ' + dir)
+    
 def upload(s, filename):
-    pass
+    file_stream = open_child_socket(s)
+    request(s, 'STOR ' + filename)
+    buffer = "hello"
+    file_stream.send(buffer+"")
+    file_stream.close()
+    print recv_timeout(s)
 
 def download(s, filename):
-    pass
+    file_stream = open_child_socket(s)
+    request(s, 'RETR ' + filename)
+    data = recv_timeout(file_stream)
+    file_stream.close()
+    print recv_timeout(s)
+    return data
+    
+def rm(s, filename):
+    request(s, 'DELE ' + filename)
 
 ###########################
 # commands to implement ###
@@ -114,4 +133,12 @@ if __name__ == '__main__':
     pwd(client_socket)
     ls(client_socket)
     cd(client_socket, './asd')
+    upload(client_socket, "testfile3.txt")
+    print download(client_socket, "testfile3.txt")
+    rm(client_socket, "testfile3.txt")
+    ls(client_socket)
+    mkd(client_socket, "test")
+    ls(client_socket)
+    rmd(client_socket, "test")
+    ls(client_socket)
     logout(client_socket)
