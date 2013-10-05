@@ -1,6 +1,7 @@
 
 import socket
 import time
+import getpass
 
 LOGIN = 'neo-210@yandex.ru'
 PASSW = 'b65bc519105b'
@@ -11,7 +12,7 @@ PORT = 21
 
 BUFF_SIZE = 2048
 
-def recv_timeout(s,timeout=1):
+def recv_timeout(s,timeout=2):
     s.setblocking(0)
     total_data=[];data='';begin=time.time()
     while True:
@@ -29,6 +30,28 @@ def recv_timeout(s,timeout=1):
         except:
             pass
     return ''.join(total_data)
+
+def recv_file(s,filename,timeout=1):
+    s.setblocking(0)
+    somedatarecved=False;data='';begin=time.time()
+    f = open(filename, 'wb')
+    while True:
+        if somedatarecved and time.time()-begin>timeout:
+            break
+        elif time.time()-begin>timeout*2:
+            break
+        try:
+            data=s.recv(BUFF_SIZE)
+            if data:
+                somedatarecved = True
+                f.write(data)
+                f.flush()
+                begin=time.time()
+            else:
+                time.sleep(0.1)
+        except:
+            pass
+    f.close()
 
 def request(s, message):
     request = message + '\r\n'
@@ -99,10 +122,9 @@ def upload(s, filename):
 def download(s, filename):
     file_stream = open_child_socket(s)
     request(s, 'RETR ' + filename)
-    data = recv_timeout(file_stream)
+    recv_file(file_stream, filename+"_")
     file_stream.close()
     print recv_timeout(s)
-    return data
     
 def rm(s, filename):
     request(s, 'DELE ' + filename)
@@ -124,21 +146,47 @@ def rm(s, filename):
 # to do list
 #############################
 # - response code validation
-# - file up/down-loading
 # - threading
 #############################
 
 if __name__ == '__main__':
     client_socket = open_socket(HOST, PORT)
-
-    print recv_timeout(client_socket)
     
-    login(client_socket, LOGIN, PASSW)
+    print recv_timeout(client_socket)
+
+    while True:
+        args = str(raw_input()).split(' ')
+        command = args[0]
+        if command == 'login':
+            user = str(raw_input('User: '))
+            pasw = getpass.getpass()
+            login(client_socket, LOGIN, PASSW)
+        elif command == 'pwd':
+            pwd(client_socket)
+        elif command == 'cd':
+            cd(client_socket, args[1])
+        elif command == 'ls':
+            ls(client_socket)
+        elif command == 'mkd':
+            mkd(client_socket, args[1])
+        elif command == 'rm':
+            rm(client_socket, args[1])
+        elif command == 'rmd':
+            rmd(client_socket, args[1])
+        elif command == 'upload':
+            upload(client_socket, args[1])
+        elif command == 'download':
+            download(client_socket, args[1])
+        elif command == 'exit':
+            logout(client_socket)
+            exit()
+
+    login(client_socket, LOGIN, PASSW+'123')
     pwd(client_socket)
     ls(client_socket)
     cd(client_socket, './asd')
     upload(client_socket, "test.obj")
-    print download(client_socket, "testfile2.txt")
+    download(client_socket, "test.obj")
     ls(client_socket)
     rm(client_socket, "test.obj")
     ls(client_socket)
@@ -147,3 +195,9 @@ if __name__ == '__main__':
     rmd(client_socket, "test")
     ls(client_socket)
     logout(client_socket)
+
+    exit()
+
+
+
+
