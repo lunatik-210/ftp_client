@@ -12,6 +12,38 @@ PORT = 21
 
 BUFF_SIZE = 2048
 
+responsehash = { 'USER' : [331],
+                 'PASS' : [230],
+                 'CONN' : [220],
+                 'PWD'  : [257],
+                 'CWD'  : [250],
+                 'RMD'  : [250],
+                 'MKD'  : [257],
+                 'LIST' : [150,226],
+                 'RETR' : [150,226],
+                 'STOR' : [150,226],
+                 'PASV' : [227],
+                 'QUIT' : [221],
+                 'DELE' : [250]
+               }
+
+help = '''
+###########################
+# command  | params
+#--------------------------
+# login    | loging, passw
+# logout   |
+# cd       | direcotry
+# ls       |
+# upload   | filename
+# download | filename
+# mkdir    | directory
+# pwd      | 
+# rmd      | directory
+# rm       | filename
+############################
+'''
+               
 def recv_timeout(s,timeout=2):
     s.setblocking(0)
     total_data=[];data='';begin=time.time()
@@ -55,11 +87,11 @@ def recv_file(s,filename,timeout=1):
 
 def request(s, message):
     request = message + '\r\n'
-    print request
+    #print request
     s.send(request)
     
     response = recv_timeout(s)
-    print response
+    #print response
     return response
 
 def open_socket(host, port):
@@ -68,7 +100,9 @@ def open_socket(host, port):
     return s
 
 def open_child_socket(s):
-    response = request(s, "PASV")
+    response = request(s, 'PASV')
+    if not process_response(response, 'PASV'):
+        return None
     
     iptext = response.split(' ')[4].replace('(', '').replace(')','').split(',')
     host = '%(1)s.%(2)s.%(3)s.%(4)s' % { '1' : iptext[0], '2' : iptext[1], '3' : iptext[2], '4' : iptext[3] }
@@ -76,38 +110,88 @@ def open_child_socket(s):
 
     return open_socket(host, port)
 
+def process_response(response, command):
+    if response == '':
+        return False
+    isValid = True
+    for a in response.splitlines():
+        if int(response[0:3]) not in responsehash[command]:
+            isValid = False
+            break
+    return isValid
+    
 def ls(s):
     file_socket = open_child_socket(s)
+    if file_socket == None:
+        print 'Operation failed'
+        return False
 
-    request(s, "LIST")
-
+    if not process_response(request(s, 'LIST'), 'LIST'):
+        print 'Operation failed'
+        return False
+    
     print recv_timeout(file_socket)
 
     file_socket.close()
 
 def login(s, user, passw):
-    request(s, 'USER ' + user)
-    request(s, 'PASS ' + passw)
+    if not process_response(request(s, 'USER ' + user), 'USER'):
+        print 'Invalid user'
+        return False
+    if not process_response(request(s, 'PASS ' + passw), 'PASS'):
+        print 'Invalid password'
+        return False
+    print 'Successfully logged in'
+    return True
 
 def logout(s):
-    request(s, 'QUIT')
+    ret = True
+    if not process_response(request(s, 'QUIT'), 'QUIT'):
+        print 'Quit operation falied'
+        ret = False
     s.close()
+    print 'Successfully logged out'
+    return ret
 
 def cd(s, path):
-    request(s, 'CWD ' + path)
-
+    if not process_response(request(s, 'CWD ' + path), 'CWD'):
+        print "Can't change directory to " + path
+        return False
+    print 'Ok'
+    return True
+        
 def pwd(s):
-    request(s, 'PWD')
+    response = request(s, 'PWD')
+    if not process_response(response, 'PWD'):
+        print 'Operation failed'
+        return False
+    print response[4:]
+    return True
     
 def mkd(s, dir):
-    request(s, 'MKD ' + dir)
+    if not process_response(request(s, 'MKD ' + dir), 'MKD'):
+        print "Can't create a directory with such a name"
+        return False
+    print 'Ok'
+    return True
     
 def rmd(s, dir):
-    request(s, 'RMD ' + dir)
+    if not process_response(request(s, 'RMD ' + dir), 'RMD'):
+        print "Can't remove a directory with such a name"
+        return False
+    print 'Ok'
+    return True        
     
 def upload(s, filename):
     file_stream = open_child_socket(s)
-    request(s, 'STOR ' + filename)
+    if file_stream == None:
+        print 'Operation failed'
+        return False
+    
+    if not process_response(request(s, 'STOR ' + filename), 'STOR'):
+        print "Can't upload file to ftp"
+        return False
+    
     buffer = "hello"
     f = open(filename, 'rb')
     while True:
@@ -118,41 +202,40 @@ def upload(s, filename):
     f.close()
     file_stream.close()
     print recv_timeout(s)
+    print 'Ok'
+    return True
 
 def download(s, filename):
     file_stream = open_child_socket(s)
-    request(s, 'RETR ' + filename)
+    if file_stream == None:
+        print 'Operation failed'
+        return False
+        
+    if not process_response(request(s, 'RETR ' + filename), 'RETR'):
+        print "Can't download file from ftp"
+        return False
+    
     recv_file(file_stream, filename+"_")
     file_stream.close()
     print recv_timeout(s)
+    print 'Ok'
+    return True
     
 def rm(s, filename):
-    request(s, 'DELE ' + filename)
-
-###########################
-# commands to implement ###
-###########################
-# command  | params
-#--------------------------
-# login    | loging, passw
-# logout   |
-# cd       | direcotry
-# ls       |
-# upload   | filename
-# download | filename
-############################
-
-#############################
-# to do list
-#############################
-# - response code validation
-# - threading
-#############################
+    if not process_response(request(s, 'DELE ' + filename), 'DELE'):
+        print "Can't remove a file with such a name"
+        return False
+    print 'Ok'
+    return True
 
 if __name__ == '__main__':
     client_socket = open_socket(HOST, PORT)
-    
-    print recv_timeout(client_socket)
+
+    if not process_response(recv_timeout(client_socket), 'CONN'):
+        print "Can't connect to the server " + HOST + ':' + str(PORT)
+    else:
+        print 'Succesefully connected to the server ' + HOST + ':' + str(PORT)
+        print 'Login is required'
 
     while True:
         args = str(raw_input()).split(' ')
@@ -167,7 +250,7 @@ if __name__ == '__main__':
             cd(client_socket, args[1])
         elif command == 'ls':
             ls(client_socket)
-        elif command == 'mkd':
+        elif command == 'mkdir':
             mkd(client_socket, args[1])
         elif command == 'rm':
             rm(client_socket, args[1])
@@ -177,27 +260,10 @@ if __name__ == '__main__':
             upload(client_socket, args[1])
         elif command == 'download':
             download(client_socket, args[1])
-        elif command == 'exit':
+        elif command == 'logout':
             logout(client_socket)
             exit()
-
-    login(client_socket, LOGIN, PASSW+'123')
-    pwd(client_socket)
-    ls(client_socket)
-    cd(client_socket, './asd')
-    upload(client_socket, "test.obj")
-    download(client_socket, "test.obj")
-    ls(client_socket)
-    rm(client_socket, "test.obj")
-    ls(client_socket)
-    mkd(client_socket, "test")
-    ls(client_socket)
-    rmd(client_socket, "test")
-    ls(client_socket)
-    logout(client_socket)
-
-    exit()
-
-
-
-
+        elif command == 'help':
+            print help
+        else:
+            print 'Invalid operation, see help'
