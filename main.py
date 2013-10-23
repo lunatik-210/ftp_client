@@ -41,6 +41,7 @@ help = '''
 # pwd      | 
 # rmd      | directory
 # rm       | filename
+# connect  | host, port
 ############################
 '''
                
@@ -227,23 +228,47 @@ def rm(s, filename):
         return False
     print 'Ok'
     return True
-
-if __name__ == '__main__':
+    
+def connect(host, port):
     client_socket = open_socket(HOST, PORT)
-
+    
     if not process_response(recv_timeout(client_socket), 'CONN'):
         print "Can't connect to the server " + HOST + ':' + str(PORT)
+        client_socket = None
     else:
         print 'Succesefully connected to the server ' + HOST + ':' + str(PORT)
         print 'Login is required'
 
+    return client_socket
+
+if __name__ == '__main__':
+
+    client_socket = None
+   
     while True:
         args = str(raw_input()).split(' ')
         command = args[0]
+        
+        if command == 'connect':
+            if args == 3:
+                host = args[1]
+                port = int(args[2])
+                client_socket = connect(host, port)
+            else:
+                client_socket = connect(HOST, PORT)
+            continue
+                
+        if client_socket == None:
+            print 'First connect to the server'
+            continue
+        
         if command == 'login':
             user = str(raw_input('User: '))
-            pasw = getpass.getpass()
-            login(client_socket, LOGIN, PASSW)
+            passw = getpass.getpass()
+            if user == '':
+                login(client_socket, LOGIN, PASSW)
+            else:
+                login(client_socket, user, passw)
         elif command == 'pwd':
             pwd(client_socket)
         elif command == 'cd':
